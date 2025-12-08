@@ -65,8 +65,7 @@ stages:
         targetType: inline
         script: |
           cd PyTodoBackendMonolith
-          "C:\Program Files\Python312\python.exe" -m pip install -r requirements.txt --target "./package"
-
+          & "C:\Program Files\Python312\python.exe" -m pip install -r requirements.txt --target "./package"
 
     # ---------------------------------------------------------
     # Publish artifacts
