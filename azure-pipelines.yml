@@ -27,20 +27,15 @@ stages:
   jobs:
   - job: Build_Backend
     steps:
-    - task: PowerShell@2
-      displayName: "Verify Python Installation"
+    - task: UsePythonVersion@0
       inputs:
-        targetType: 'inline'
-        script: |
+        versionSpec: '3.10'
+        addToPath: true
+        architecture: 'x64'
+    - script: |
           python --version
           pip --version
-
-    - task: PowerShell@2
-      displayName: "Install Backend Dependencies"
-      inputs:
-        targetType: 'inline'
-        script: |
-          cd PyTodoBackendMonolith
+    - script: |          
           pip install -r requirements.txt -t package
 
     - task: PublishBuildArtifacts@1
