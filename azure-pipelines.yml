@@ -16,12 +16,15 @@ stages:
     displayName: "Build Backend on Windows Agent"
     steps:
 
+    # ---------------------------------------------------------
     # Install Python only if not already installed
+    # ---------------------------------------------------------
     - task: PowerShell@2
       displayName: "Install Python Only If Missing"
       inputs:
         targetType: inline
         script: |
+          # Check if python exists
           if (Get-Command python -ErrorAction SilentlyContinue) {
               Write-Host "Python is already installed."
               python --version
@@ -30,31 +33,49 @@ stages:
 
           Write-Host "Python not found. Installing now..."
 
+          # Download installer
           $pythonInstaller = "python-installer.exe"
           Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.12.0/python-3.12.0-amd64.exe" -OutFile $pythonInstaller
 
+          # Install silently
           Start-Process ".\python-installer.exe" -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
 
-          Write-Host "Python successfully installed:"
-          python --version
+          # Manually add Python to PATH for this pipeline step
+          $pythonPath = "C:\Program Files\Python312\"
+          $scriptsPath = "C:\Program Files\Python312\Scripts\"
+
+          if (Test-Path $pythonPath) {
+              Write-Host "Python found at $pythonPath"
+              $env:Path = "$pythonPath;$scriptsPath;" + $env:Path
+          } else {
+              Write-Host "Python installation folder not found!"
+              Get-ChildItem "C:\Program Files"
+          }
+
+          # Use full path to ensure it works
+          & "C:\Program Files\Python312\python.exe" --version
 
 
+    # ---------------------------------------------------------
     # Install backend dependencies
+    # ---------------------------------------------------------
     - task: PowerShell@2
       displayName: "Install Backend Dependencies"
       inputs:
         targetType: inline
         script: |
           cd PyTodoBackendMonolith
-          python -m pip install -r requirements.txt --target "./package"
+          "C:\Program Files\Python312\python.exe" -m pip install -r requirements.txt --target "./package"
 
-    # Publish artifact
+
+    # ---------------------------------------------------------
+    # Publish artifacts
+    # ---------------------------------------------------------
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: 'PyTodoBackendMonolith'
         ArtifactName: 'backend_artifact'
         publishLocation: 'Container'
-
 
 
 # ============================================================
