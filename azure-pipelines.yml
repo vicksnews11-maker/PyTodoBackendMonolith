@@ -29,27 +29,31 @@ stages:
   jobs:
   - job: Build_Backend
     displayName: "Build Backend Job"
-
     steps:
-
     #------------------------------------------
-    # Install Python silently
+    # Check & Install Python (only if missing)
     #------------------------------------------
     - task: PowerShell@2
-      displayName: Install Python
+      displayName: "Check & Install Python"
       inputs:
         targetType: inline
         script: |
-          Write-Host "Downloading Python..."
-          Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe -OutFile python.exe
+          Write-Host "Checking if Python already exists..."
+          $python = Get-Command python -ErrorAction SilentlyContinue
+          if ($python) {
+              Write-Host "Python already installed at $($python.Source). Skipping installation."
+          }
+          else {
+              Write-Host "Python not found. Installing Python..."
 
-          Write-Host "Installing Python..."
-          Start-Process python.exe -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
+              Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe -OutFile python.exe
+              Start-Process python.exe -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
+              Write-Host "Python installation completed."              
+              # Add PATH for this session
+              $env:Path += ";C:\Program Files\Python310\;C:\Program Files\Python310\Scripts"
+          }
 
-          # Update PATH for this session
-          $env:Path += ";C:\Program Files\Python310\;C:\Program Files\Python310\Scripts"
-
-          Write-Host "PATH updated."
+          Write-Host "Final Python Path: $env:Path"
 
     #------------------------------------------
     # Verify Python installation
@@ -79,8 +83,6 @@ stages:
       inputs:
         PathtoPublish: 'PyTodoBackendMonolith'
         ArtifactName: 'backend_artifact'
-
-
 #---------------------- BACKEND DEPLOY ----------------------
 - stage: Deploy
   displayName: "Deploy Backend"
