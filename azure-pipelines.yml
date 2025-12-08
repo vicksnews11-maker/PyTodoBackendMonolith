@@ -19,7 +19,9 @@
 #       displayName: "Install Python"
 trigger:
 - main
+
 pool: Default
+
 stages:
 #---------------------- BACKEND BUILD ----------------------
 - stage: Build
@@ -27,17 +29,28 @@ stages:
   jobs:
   - job: Build_Backend
     steps:
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '3.10'
-        addToPath: true
-        architecture: 'x64'
-    - script: |
-          python --version
-          pip --version
-    - script: |          
-          pip install -r requirements.txt -t package
 
+    # Install Python silently
+    - task: PowerShell@2
+      displayName: Install Python
+      inputs:
+        targetType: inline
+        script: |
+          Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe -OutFile python.exe
+          Start-Process python.exe -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
+
+    # Check versions
+    - script: |
+        python --version
+        pip --version
+      displayName: Verify Python
+
+    # Install dependencies into package folder
+    - script: |
+        pip install -r PyTodoBackendMonolith/requirements.txt -t package
+      displayName: Install Requirements
+
+    # Publish artifact
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: 'PyTodoBackendMonolith'
