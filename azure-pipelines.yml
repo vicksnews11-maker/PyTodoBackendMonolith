@@ -19,33 +19,35 @@
 #       displayName: "Install Python"
 trigger:
 - main
-
+pool: Default
 stages:
+#---------------------- BACKEND BUILD ----------------------
 - stage: Build
+  displayName: "Build Backend"
   jobs:
   - job: Build_Backend
-    pool:
-      vmImage: 'ubuntu-latest'
     steps:
-    - task: Bash@3
+    - task: PowerShell@2
+      displayName: "Verify Python Installation"
       inputs:
-        targetType: inline
+        targetType: 'inline'
         script: |
-          sudo apt update
-          sudo apt install -y python3 python3-pip
-      
-    - task: Bash@3
+          python --version
+          pip --version
+
+    - task: PowerShell@2
+      displayName: "Install Backend Dependencies"
       inputs:
         targetType: 'inline'
         script: |
           cd PyTodoBackendMonolith
-          pip3 install -r requirements.txt --target "./package"
-      displayName: "Install Backend Dependencies"
+          pip install -r requirements.txt -t package
+
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: 'PyTodoBackendMonolith'
         ArtifactName: 'backend_artifact'
-        publishLocation: 'Container'
+
 #---------------------- BACKEND DEPLOY ----------------------
 - stage: Deploy
   displayName: "Deploy Backend"
