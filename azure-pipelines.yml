@@ -20,7 +20,7 @@
 trigger:
 - main
 
-pool: Default
+pool: Default   # self-hosted Windows agent
 
 stages:
 #---------------------- BACKEND BUILD ----------------------
@@ -28,33 +28,58 @@ stages:
   displayName: "Build Backend"
   jobs:
   - job: Build_Backend
+    displayName: "Build Backend Job"
+
     steps:
 
+    #------------------------------------------
     # Install Python silently
+    #------------------------------------------
     - task: PowerShell@2
       displayName: Install Python
       inputs:
         targetType: inline
         script: |
+          Write-Host "Downloading Python..."
           Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe -OutFile python.exe
+
+          Write-Host "Installing Python..."
           Start-Process python.exe -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
 
-    # Check versions
-    - script: |
-        python --version
-        pip --version
+          # Update PATH for this session
+          $env:Path += ";C:\Program Files\Python310\;C:\Program Files\Python310\Scripts"
+
+          Write-Host "PATH updated."
+
+    #------------------------------------------
+    # Verify Python installation
+    #------------------------------------------
+    - task: PowerShell@2
       displayName: Verify Python
+      inputs:
+        targetType: inline
+        script: |
+          python --version
+          pip --version
 
-    # Install dependencies into package folder
-    - script: |
-        pip install -r PyTodoBackendMonolith/requirements.txt -t package
+    #------------------------------------------
+    # Install dependencies into "package" folder
+    #------------------------------------------
+    - task: PowerShell@2
       displayName: Install Requirements
+      inputs:
+        targetType: inline
+        script: |
+          pip install -r PyTodoBackendMonolith/requirements.txt -t package
 
+    #------------------------------------------
     # Publish artifact
+    #------------------------------------------
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: 'PyTodoBackendMonolith'
         ArtifactName: 'backend_artifact'
+
 
 #---------------------- BACKEND DEPLOY ----------------------
 - stage: Deploy
