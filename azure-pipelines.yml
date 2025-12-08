@@ -1,118 +1,93 @@
-# trigger:
-# - main
-# pool: Default
-# #---------------------- BACKEND BUILD ----------------------  
-# stages:
-# - stage: Build
-#   displayName: "Build Backend"
-#   jobs:
-#   - job: Build_Backend
-#     pool:
-#       vmImage: 'ubuntu-latest'
-#     steps:
-#     - task: Bash@3
-#       inputs:
-#         targetType: 'inline'
-#         script: |
-#           sudo apt update
-#           sudo apt install -y python3 python3-pip
-#       displayName: "Install Python"
 trigger:
 - main
 
-pool: Default   # self-hosted Windows agent
+pool:
+  name: 'Default'   # Windows self-hosted agent
 
 stages:
-#---------------------- BACKEND BUILD ----------------------
+
+# ============================================================
+#                     BACKEND BUILD (WINDOWS)
+# ============================================================
 - stage: Build
   displayName: "Build Backend"
   jobs:
   - job: Build_Backend
-    displayName: "Build Backend Job"
+    displayName: "Build Backend on Windows Agent"
     steps:
-    #------------------------------------------
-    # Check & Install Python (only if missing)
-    #------------------------------------------
+
+    # Install Python only if not already installed
     - task: PowerShell@2
-      displayName: "Check & Install Python"
+      displayName: "Install Python Only If Missing"
       inputs:
         targetType: inline
         script: |
-          Write-Host "Checking if Python already exists..."
-          $python = Get-Command python -ErrorAction SilentlyContinue
-          if ($python) {
-              Write-Host "Python already installed at $($python.Source). Skipping installation."
-          }
-          else {
-              Write-Host "Python not found. Installing Python..."
-
-              Invoke-WebRequest -Uri https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe -OutFile python.exe
-              Start-Process python.exe -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
-              Write-Host "Python installation completed."              
-              # Add PATH for this session
-              $env:Path += ";C:\Program Files\Python310\;C:\Program Files\Python310\Scripts"
+          if (Get-Command python -ErrorAction SilentlyContinue) {
+              Write-Host "Python is already installed."
+              python --version
+              exit 0
           }
 
-          Write-Host "Final Python Path: $env:Path"
+          Write-Host "Python not found. Installing now..."
 
-    #------------------------------------------
-    # Verify Python installation
-    #------------------------------------------
-    - task: PowerShell@2
-      displayName: Verify Python
-      inputs:
-        targetType: inline
-        script: |
+          $pythonInstaller = "python-installer.exe"
+          Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.12.0/python-3.12.0-amd64.exe" -OutFile $pythonInstaller
+
+          Start-Process ".\python-installer.exe" -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
+
+          Write-Host "Python successfully installed:"
           python --version
-          pip --version
 
-    #------------------------------------------
-    # Install dependencies into "package" folder
-    #------------------------------------------
+
+    # Install backend dependencies
     - task: PowerShell@2
-      displayName: Install Requirements
+      displayName: "Install Backend Dependencies"
       inputs:
         targetType: inline
         script: |
-          pip install -r PyTodoBackendMonolith/requirements.txt -t package
+          cd PyTodoBackendMonolith
+          python -m pip install -r requirements.txt --target "./package"
 
-    #------------------------------------------
     # Publish artifact
-    #------------------------------------------
     - task: PublishBuildArtifacts@1
       inputs:
         PathtoPublish: 'PyTodoBackendMonolith'
         ArtifactName: 'backend_artifact'
-#---------------------- BACKEND DEPLOY ----------------------
+        publishLocation: 'Container'
+
+
+
+# ============================================================
+#                     BACKEND DEPLOY (LINUX VM)
+# ============================================================
 - stage: Deploy
   displayName: "Deploy Backend"
   dependsOn: Build
   jobs:
   - job: Deploy_Backend
+    displayName: "Deploy Backend to Linux VM"
     steps:
-    - task: DownloadBuildArtifacts@0
+
+    - task: DownloadBuildArtifacts@1
       inputs:
-        buildType: 'current'
-        downloadType: 'single'
         artifactName: 'backend_artifact'
         downloadPath: '$(Pipeline.Workspace)/backend'
-      displayName: "Download Backend Artifact"    
+
     - task: CopyFilesOverSSH@0
+      displayName: "Copy Backend Files"
       inputs:
         sshEndpoint: 'backend-ssh'
         sourceFolder: '$(Pipeline.Workspace)/backend'
-        contents: '**'
         targetFolder: '/var/app/backend'
-        readyTimeout: '20000'
-      displayName: "Copy Backend Files to VM"
+        overwrite: true
+
     - task: SSH@0
+      displayName: "Restart Backend"
       inputs:
         sshEndpoint: 'backend-ssh'
-        runOptions: 'inline'
+        runOptions: inline
         inline: |
-          cd /var/app/backend/backend_artifact/PyTodoBackendMonolith 
+          cd /var/app/backend
           pip3 install -r requirements.txt
           pkill -f uvicorn || true
           nohup uvicorn app:app --host 0.0.0.0 --port 8000 &
-        readyTimeout: '20000'
-      displayName: "Install Dependencies & Restart Uvicorn"
