@@ -54,7 +54,7 @@ stages:
         sshEndpoint: 'backend-ssh'
         runOptions: 'inline'
         inline: |
-          cd /var/app/backend/backend_artifact/PyTodoBackendMonolith
+          cd /var/app/backend/backend_artifact/PyTodoBackendMonolith 
           pip3 install -r requirements.txt
           pkill -f uvicorn || true
           nohup uvicorn app:app --host 0.0.0.0 --port 8000 &
