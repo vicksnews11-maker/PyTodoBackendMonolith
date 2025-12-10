@@ -4,6 +4,9 @@ trigger:
 pool:
   name: 'Default'   # Windows self-hosted agent
 
+variables:
+ - group: dev
+
 stages:
 
 # ============================================================
@@ -14,6 +17,7 @@ stages:
   jobs:
   - job: Build_Backend
     displayName: "Build Backend on Windows Agent"
+    
     steps:
 
     # ---------------------------------------------------------
